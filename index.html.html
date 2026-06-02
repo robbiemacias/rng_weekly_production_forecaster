@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aemetis Biogas — RNG Weekly Production Forecaster</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+  :root {
+    --aemetis-blue: #4D80C0;
+    --aemetis-green: #99CC66;
+    --aemetis-red: #FF3333;
+    --aemetis-gold: #FFCC33;
+    --aemetis-dark-blue: #003366;
+    --aemetis-dark-green: #336600;
+    --aemetis-mid-blue: #336699;
+    --aemetis-mid-green: #669933;
+    --aemetis-navy: #000033;
+    --aemetis-light-green: #CCFF99;
+  }
+  body { font-family: 'Aptos', 'Segoe UI', system-ui, sans-serif; background: #f7f7f5; }
+  .brand-title { font-family: 'Cambria', 'Times New Roman', serif; color: var(--aemetis-dark-blue); }
+  .card { background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
+  .kpi-card { padding: 16px 20px; }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; font-weight: 600; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--aemetis-dark-blue); margin-top: 4px; }
+  .kpi-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .section-header { background: var(--aemetis-dark-green); color: white; padding: 8px 16px; font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 6px 6px 0 0; }
+  .section-body { padding: 16px; }
+  .input-row { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .input-row label { font-size: 12px; font-weight: 600; color: #374151; }
+  .input-row input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; width: 100%; }
+  .input-row input:focus { outline: 2px solid var(--aemetis-blue); border-color: transparent; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data th { background: var(--aemetis-gold); color: var(--aemetis-navy); padding: 8px 10px; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid var(--aemetis-dark-blue); }
+  table.data td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; color: #1f2937; }
+  table.data tr:hover td { background: #f9fafb; }
+  table.data tfoot tr { background: var(--aemetis-dark-blue); }
+  table.data tfoot td { color: white; font-weight: 700; padding: 10px; border-bottom: none; }
+  table.data tfoot tr:hover td { background: var(--aemetis-dark-blue); }
+  table.data tfoot td.tfoot-highlight { color: var(--aemetis-gold); font-size: 15px; }
+  table.data tfoot td.tfoot-delta-pos { color: var(--aemetis-light-green); }
+  table.data tfoot td.tfoot-delta-neg { color: #FFB088; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .btn { background: var(--aemetis-dark-blue); color: white; padding: 8px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+  .btn:hover { background: var(--aemetis-mid-blue); }
+  .btn-secondary { background: var(--aemetis-mid-green); }
+  .btn-secondary:hover { background: var(--aemetis-dark-green); }
+  .btn-ghost { background: transparent; color: var(--aemetis-dark-blue); border: 1px solid var(--aemetis-dark-blue); }
+  .btn-ghost:hover { background: var(--aemetis-dark-blue); color: white; }
+  .btn-mini { padding: 4px 10px; font-size: 11px; border-radius: 3px; cursor: pointer; border: 1px solid #d1d5db; background: white; color: #374151; font-weight: 600; }
+  .btn-mini:hover { background: var(--aemetis-light-green); border-color: var(--aemetis-mid-green); }
+  .btn-mini.active { background: var(--aemetis-dark-blue); color: white; border-color: var(--aemetis-dark-blue); }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .chip-cert { background: var(--aemetis-green); color: var(--aemetis-dark-green); }
+  .chip-precom { background: #e5e7eb; color: #4b5563; }
+  .status-ok { color: var(--aemetis-dark-green); }
+  .status-warn { color: #b45309; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #d1d5db; border-top-color: var(--aemetis-blue); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  details > summary { cursor: pointer; padding: 6px 0; font-weight: 600; color: var(--aemetis-dark-blue); font-size: 13px; user-select: none; }
+  details[open] > summary { margin-bottom: 8px; }
+  .footer-note { font-size: 11px; color: #6b7280; }
+  .mode-tab { padding: 8px 16px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-size: 13px; font-weight: 600; color: #6b7280; }
+  .mode-tab.active { background: var(--aemetis-dark-blue); color: white; border-color: var(--aemetis-dark-blue); }
+  .mode-tab:first-child { border-radius: 4px 0 0 4px; }
+  .mode-tab:last-child { border-radius: 0 4px 4px 0; }
+  .manual-input { padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 12px; width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+  .manual-input:focus { outline: 2px solid var(--aemetis-blue); border-color: transparent; }
+  .period-control { display: flex; align-items: center; gap: 10px; background: white; border: 1px solid #d1d5db; border-radius: 4px; padding: 8px 12px; }
+  .period-control label { font-size: 12px; font-weight: 600; color: #374151; }
+  .period-control input { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 13px; }
+  @media print { .no-print { display: none; } body { background: white; } }
+</style>
+</head>
+<body class="text-gray-900">
+
+<div class="max-w-7xl mx-auto p-6">
+
+  <!-- ============ HEADER ============ -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <div class="text-xs uppercase tracking-widest" style="color: var(--aemetis-mid-blue);">Aemetis Biogas LLC · Ceres, California</div>
+      <h1 class="brand-title text-3xl font-bold mt-1">RNG Weekly Production Forecaster</h1>
+      <div class="text-sm text-gray-600 mt-1">Weather-adjusted production model · Baseline 14.2 MMBtu/WCE/yr · Modesto, CA reference station</div>
+    </div>
+    <div class="text-right">
+      <div class="text-xs text-gray-500">Calc last run</div>
+      <div id="lastRefresh" class="text-sm font-semibold" style="color: var(--aemetis-dark-blue);">—</div>
+    </div>
+  </div>
+
+  <!-- ============ STATUS BAR ============ -->
+  <div id="statusBar" class="mb-4 px-4 py-3 rounded text-sm" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
+    Initializing...
+  </div>
+
+  <!-- ============ MODE + PERIOD CONTROLS ============ -->
+  <div class="mb-4 flex flex-wrap items-center gap-3 no-print">
+    <div class="flex items-center gap-2">
+      <span class="text-sm font-semibold" style="color: var(--aemetis-dark-blue);">Weather source:</span>
+      <div>
+        <button class="mode-tab active" id="tabManual" onclick="setMode('manual')">Manual Entry</button>
+        <button class="mode-tab" id="tabLive" onclick="setMode('live')">Live API</button>
+      </div>
+    </div>
+    <div class="period-control">
+      <label for="inStartDate">Forecast Period Start:</label>
+      <input type="date" id="inStartDate" onchange="onStartDateChange()" />
+      <span class="text-xs text-gray-500" id="periodEnd"></span>
+    </div>
+    <button class="btn btn-ghost ml-auto" onclick="refreshData()">Recalculate</button>
+  </div>
+
+  <!-- ============ KPI STRIP ============ -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card kpi-card">
+      <div class="kpi-label">Active WCE</div>
+      <div class="kpi-value" id="kpiWCE">—</div>
+      <div class="kpi-sub" id="kpiWCEsub">Certified dairies only</div>
+    </div>
+    <div class="card kpi-card">
+      <div class="kpi-label">Annual MMBtu Potential</div>
+      <div class="kpi-value" id="kpiAnnual">—</div>
+      <div class="kpi-sub">WCE × MMBtu/WCE baseline</div>
+    </div>
+    <div class="card kpi-card" style="border-left: 4px solid var(--aemetis-green);">
+      <div class="kpi-label">7-Day Forecast</div>
+      <div class="kpi-value" id="kpi7day" style="color: var(--aemetis-dark-green);">—</div>
+      <div class="kpi-sub" id="kpi7daySub">MMBtu, temp-adjusted</div>
+    </div>
+    <div class="card kpi-card" style="border-left: 4px solid var(--aemetis-gold);">
+      <div class="kpi-label">Avg Temp 7 Days</div>
+      <div class="kpi-value" id="kpiTemp">—</div>
+      <div class="kpi-sub" id="kpiTempSub">vs. climatological normal</div>
+    </div>
+  </div>
+
+  <!-- ============ MANUAL ENTRY TABLE ============ -->
+  <div class="card mb-6" id="manualPanel">
+    <div class="section-header flex justify-between items-center">
+      <span>Manual Weather Entry — 14-Day Window</span>
+      <div class="no-print">
+        <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px;" onclick="resetToNormals()">Reset to Normals</button>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="text-xs text-gray-600 mb-3">
+        Pulled from <a href="https://www.wunderground.com/weather/us/ca/modesto/" target="_blank" style="color: var(--aemetis-blue); text-decoration: underline;">wunderground.com/weather/us/ca/modesto</a> or any other source. Enter the daily high (°F) and low (°F); mean is auto-calculated. Defaults are climatological normals for the chosen month.
+      </div>
+      <div class="overflow-x-auto">
+        <table class="data" id="manualTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Day</th>
+              <th class="num">High °F</th>
+              <th class="num">Low °F</th>
+              <th class="num">Mean °F</th>
+              <th class="num">Normal °F</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LIVE API PANEL ============ -->
+  <div class="card mb-6 hidden" id="livePanel">
+    <div class="section-header">Live API · Open-Meteo (Modesto Station Region)</div>
+    <div class="section-body">
+      <div class="text-xs text-gray-600 mb-3">
+        Auto-selects archive vs. forecast endpoint based on the period start date.
+        <strong style="color: var(--aemetis-red);">Note:</strong> The claude.ai artifact preview blocks external API calls. To use Live mode, download this HTML and either open it directly in Chrome/Edge/Firefox, or host it on SharePoint/intranet.
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+        <div class="input-row">
+          <label style="width: 90px;">Latitude</label>
+          <input type="number" id="inLat" value="37.6391" step="0.0001" />
+        </div>
+        <div class="input-row">
+          <label style="width: 90px;">Longitude</label>
+          <input type="number" id="inLng" value="-120.9969" step="0.0001" />
+        </div>
+        <button class="btn" onclick="fetchLiveWeather()">Fetch live weather</button>
+      </div>
+      <div id="liveStatus" class="text-sm text-gray-600"></div>
+    </div>
+  </div>
+
+  <!-- ============ INPUTS PANEL ============ -->
+  <div class="card mb-6">
+    <div class="section-header">Production Model Inputs</div>
+    <div class="section-body grid grid-cols-1 md:grid-cols-2 gap-x-8">
+      <div>
+        <div class="input-row">
+          <label>Total Active WCE</label>
+          <input type="number" id="inWCE" value="34323" step="100" onchange="refreshData()" />
+        </div>
+        <div class="input-row">
+          <label>Baseline MMBtu/WCE/yr</label>
+          <input type="number" id="inBaseline" value="14.2" step="0.1" onchange="refreshData()" />
+        </div>
+      </div>
+      <div>
+        <div class="input-row">
+          <label>Temp sensitivity (%/°F)</label>
+          <input type="number" id="inSensitivity" value="1.6" step="0.1" onchange="refreshData()" />
+        </div>
+      </div>
+    </div>
+    <div class="px-4 pb-3 footer-note">
+      Sensitivity 1.6%/°F is derived from the workbook's own seasonality (0.71 Jan ↔ 1.27 Jul vs. Modesto normals 47.5°F ↔ 78.8°F). Adjust upward if your covered lagoons show stronger temperature response; downward if dampened by mixing or thermal mass. <strong>Default WCE 34,323 reflects the 13 currently-certified dairies</strong>; add pre-commissioning sites via the Dairy Roster below as they come online.
+    </div>
+  </div>
+
+  <!-- ============ 7-DAY FORECAST TABLE ============ -->
+  <div class="card mb-6">
+    <div class="section-header flex justify-between items-center">
+      <span>7-Day Operational Forecast</span>
+      <button class="btn btn-secondary no-print" style="padding: 4px 12px; font-size: 11px;" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div class="section-body p-0">
+      <div class="overflow-x-auto">
+        <table class="data" id="weeklyTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Day</th>
+              <th class="num">High °F</th>
+              <th class="num">Low °F</th>
+              <th class="num">Mean °F</th>
+              <th class="num">Normal °F</th>
+              <th class="num">Δ vs Normal</th>
+              <th class="num">Baseline MMBtu</th>
+              <th class="num">Adjusted MMBtu</th>
+              <th class="num">Adj %</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="10" class="text-center text-gray-500 py-4">—</td></tr></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="7">7-DAY TOTAL</td>
+              <td class="num" id="totBase">—</td>
+              <td class="num tfoot-highlight" id="totAdj">—</td>
+              <td class="num" id="totPct">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 14-DAY OUTLOOK CHART ============ -->
+  <div class="card mb-6">
+    <div class="section-header">14-Day Outlook — Temperature &amp; Production</div>
+    <div class="section-body">
+      <div class="text-xs text-gray-600 mb-2">
+        Bars colored by adjustment direction: <span style="color: var(--aemetis-dark-green); font-weight: 600;">green</span> = above baseline (warmer than normal),
+        <span style="color: var(--aemetis-mid-blue); font-weight: 600;">blue</span> = at baseline,
+        <span style="color: #b45309; font-weight: 600;">amber</span> = below baseline (cooler than normal).
+      </div>
+      <canvas id="chartOutlook" height="110"></canvas>
+    </div>
+  </div>
+
+  <!-- ============ 12-MONTH HISTORICAL ============ -->
+  <div class="card mb-6" id="historicalCard">
+    <div class="section-header">12-Month Historical — Temperature vs. Modeled Production</div>
+    <div class="section-body">
+      <div id="historicalEmpty" class="text-center text-gray-500 py-8 text-sm">
+        Available in Live API mode. Switch to Live and fetch to populate 365 days of historical Modesto-area temperature against modeled production.
+      </div>
+      <canvas id="chartHistorical" height="100" class="hidden"></canvas>
+    </div>
+  </div>
+
+  <!-- ============ MONTHLY SEASONALITY ============ -->
+  <div class="card mb-6">
+    <div class="section-header">Monthly Seasonality Reference (from workbook)</div>
+    <div class="section-body">
+      <canvas id="chartSeasonality" height="80"></canvas>
+      <div class="footer-note mt-3">
+        Factors of average month, sum to 12. Peak Jul (1.27); trough Jan (0.71). These are climatological — the temperature adjustment layers on top of these to capture day-to-day variance against Modesto monthly normals.
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DAIRY ROSTER ============ -->
+  <div class="card mb-6">
+    <div class="section-header">Dairy Roster</div>
+    <div class="section-body">
+      <details open>
+        <summary>Show 30-dairy roster (toggle inclusion · WCE drives the total above)</summary>
+        <div class="flex gap-2 mb-3 no-print">
+          <button class="btn-mini" onclick="bulkSelect('certified')">✓ Certified only (13)</button>
+          <button class="btn-mini" onclick="bulkSelect('all')">Select all (30)</button>
+          <button class="btn-mini" onclick="bulkSelect('none')">Clear all</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data" id="dairyTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Dairy</th>
+                <th>Status</th>
+                <th class="num">WCE</th>
+                <th class="num">Cert CI</th>
+                <th class="num">Annual MMBtu</th>
+                <th>Include</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">INCLUDED TOTAL</td>
+                <td class="num" id="rosterWCE">—</td>
+                <td></td>
+                <td class="num tfoot-highlight" id="rosterMMBtu">—</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div class="text-center py-6 footer-note">
+    <div>Aemetis Biogas LLC · Internal Operations Tool</div>
+    <div>Weather sources: Wunderground (manual) · Open-Meteo (live, when network permits)</div>
+    <div class="mt-1">Generated 2026-05-14 · v4 · For planning use only; not a regulatory deliverable</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const MONTHLY_NORMALS = [47.5, 52.2, 56.5, 60.5, 67.2, 73.7, 78.8, 77.6, 73.7, 64.6, 53.2, 46.4];
+const MONTHLY_HIGH    = [58,   64,   69,   75,   83,   89,   94,   93,   89,   79,   65,   56];
+const MONTHLY_LOW     = [37,   41,   44,   46,   51,   57,   61,   60,   57,   50,   41,   37];
+const SEASONALITY     = [0.71, 0.82, 0.96, 1.11, 1.12, 1.16, 1.27, 1.15, 1.13, 0.95, 0.84, 0.78];
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// Dairy roster — pre-commissioning sites default to EXCLUDED, certified default INCLUDED
+const DAIRIES = [
+  {n:1, name:"Ackerman Dairy", status:"Certified", wce:2033, ci:-314.9},
+  {n:2, name:"Ahlem Jersey Farms", status:"Certified", wce:2545, ci:-419.8},
+  {n:3, name:"KR Blount", status:"Certified", wce:1301, ci:-370.0},
+  {n:4, name:"Double D Dairy", status:"Certified", wce:4417, ci:-360.0},
+  {n:5, name:"SS Dairy", status:"Certified", wce:2583, ci:-418.7},
+  {n:6, name:"Trinkler Dairy", status:"Certified", wce:3832, ci:-351.7},
+  {n:7, name:"Mendes Dairy", status:"Certified", wce:2409, ci:-292.4},
+  {n:8, name:"Wickstrom Jersey Farms", status:"Certified", wce:2798, ci:-426.2},
+  {n:9, name:"Alamo Dairy Farms", status:"Certified", wce:2111, ci:-350.1},
+  {n:10, name:"Hilmar Holsteins", status:"Certified", wce:3062, ci:-426.1},
+  {n:11, name:"Peterson Dairy", status:"Certified", wce:837, ci:-416.1},
+  {n:12, name:"Borba Dairy Farms", status:"Certified", wce:3307, ci:-421.0},
+  {n:13, name:"Martin Bros", status:"Certified", wce:3088, ci:-422.5},
+  {n:14, name:"Edelweiss", status:"Pre-commissioning", wce:1986, ci:-360.0},
+  {n:15, name:"Oliveira", status:"Pre-commissioning", wce:1969, ci:-360.0},
+  {n:16, name:"Lumar Cluster", status:"Pre-commissioning", wce:7517, ci:-360.0},
+  {n:17, name:"Jordao Dairy", status:"Pre-commissioning", wce:1886, ci:-360.0},
+  {n:18, name:"Gioletti & Sons", status:"Pre-commissioning", wce:4529, ci:-360.0},
+  {n:19, name:"MB Luck Lady", status:"Pre-commissioning", wce:1564, ci:-360.0},
+  {n:20, name:"CDF Larson", status:"Pre-commissioning", wce:4131, ci:-360.0},
+  {n:21, name:"Double D Holsteins", status:"Pre-commissioning", wce:1064, ci:-360.0},
+  {n:22, name:"Zylstra Dairy", status:"Pre-commissioning", wce:2006, ci:-360.0},
+  {n:23, name:"Veldhuis North Dairy", status:"Pre-commissioning", wce:4419, ci:-360.0},
+  {n:24, name:"GJ Silva Dairy", status:"Pre-commissioning", wce:3158, ci:-360.0},
+  {n:25, name:"B6 Dairy", status:"Pre-commissioning", wce:2745, ci:-360.0},
+  {n:26, name:"Joe Rocha Dairy", status:"Pre-commissioning", wce:1895, ci:-360.0},
+  {n:27, name:"Parkview Dairy", status:"Pre-commissioning", wce:2547, ci:-360.0},
+  {n:28, name:"Huff Cluster", status:"Pre-commissioning", wce:6336, ci:-360.0},
+  {n:29, name:"Azevedo Dairy", status:"Pre-commissioning", wce:1323, ci:-360.0},
+  {n:30, name:"El Katrina", status:"Pre-commissioning", wce:1641, ci:-360.0},
+];
+// Default: exclude all pre-commissioning sites
+DAIRIES.forEach(d => { if (d.status === 'Pre-commissioning') d._excluded = true; });
+
+// State
+let mode = 'manual';
+let dailyWeather = [];
+let historyData = [];
+let charts = {};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function formatNum(n, decimals = 0) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function setStatus(html, type = 'info') {
+  const bar = document.getElementById('statusBar');
+  const colors = {
+    info:  { bg: '#fef3c7', fg: '#92400e', border: '#fde68a' },
+    ok:    { bg: '#d1fae5', fg: '#065f46', border: '#a7f3d0' },
+    error: { bg: '#fee2e2', fg: '#991b1b', border: '#fecaca' },
+  };
+  const c = colors[type] || colors.info;
+  bar.style.background = c.bg;
+  bar.style.color = c.fg;
+  bar.style.border = `1px solid ${c.border}`;
+  bar.innerHTML = html;
+}
+
+function normalForDate(date) { return MONTHLY_NORMALS[date.getMonth()]; }
+function seasonalityForDate(date) { return SEASONALITY[date.getMonth()]; }
+function daysInMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate(); }
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+function getStartDate() {
+  const v = document.getElementById('inStartDate').value;
+  if (!v) return new Date();
+  const [y, m, d] = v.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+
+function updatePeriodEnd() {
+  const start = getStartDate();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 13);
+  document.getElementById('periodEnd').textContent =
+    `→ ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (14-day window)`;
+}
+
+// ============================================================
+// PRODUCTION MODEL
+// ============================================================
+function dailyProduction(wce, baseline, sensitivityPct, date, ambientTemp) {
+  const annual = wce * baseline;
+  const monthlyMMBtu = annual * seasonalityForDate(date) / 12;
+  const base = monthlyMMBtu / daysInMonth(date);
+  const normal = normalForDate(date);
+  const sensitivity = sensitivityPct / 100;
+  const tempFactor = 1 + sensitivity * (ambientTemp - normal);
+  const adjusted = base * Math.max(0.3, tempFactor);
+  return { base, adjusted, normal, tempFactor };
+}
+
+// ============================================================
+// MANUAL ENTRY MODE
+// ============================================================
+function initManualTable() {
+  const tbody = document.querySelector('#manualTable tbody');
+  tbody.innerHTML = '';
+  dailyWeather = [];
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const m = d.getMonth();
+    const tmax = MONTHLY_HIGH[m];
+    const tmin = MONTHLY_LOW[m];
+    const tmean = (tmax + tmin) / 2;
+    dailyWeather.push({ date: d, tmax, tmin, tmean });
+
+    const isToday = d.toDateString() === today.toDateString();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: i === 0 ? 'numeric' : undefined })}</td>
+      <td>${DAY_NAMES[d.getDay()]}${isToday ? ' <span style="color: var(--aemetis-mid-green); font-size: 11px; font-weight: 600;">(today)</span>' : ''}</td>
+      <td class="num"><input type="number" class="manual-input" data-idx="${i}" data-field="tmax" value="${tmax}" step="1" /></td>
+      <td class="num"><input type="number" class="manual-input" data-idx="${i}" data-field="tmin" value="${tmin}" step="1" /></td>
+      <td class="num" id="meanCell${i}" style="font-weight: 600;">${tmean.toFixed(1)}</td>
+      <td class="num" style="color: #6b7280;">${normalForDate(d).toFixed(1)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.querySelectorAll('.manual-input').forEach(el => {
+    el.addEventListener('input', onManualChange);
+  });
+}
+
+function onManualChange(e) {
+  const idx = parseInt(e.target.dataset.idx);
+  const field = e.target.dataset.field;
+  const val = parseFloat(e.target.value);
+  if (!isNaN(val)) {
+    dailyWeather[idx][field] = val;
+    dailyWeather[idx].tmean = (dailyWeather[idx].tmax + dailyWeather[idx].tmin) / 2;
+    document.getElementById(`meanCell${idx}`).textContent = dailyWeather[idx].tmean.toFixed(1);
+  }
+  refreshData();
+}
+
+function resetToNormals() {
+  initManualTable();
+  refreshData();
+}
+
+function onStartDateChange() {
+  updatePeriodEnd();
+  if (mode === 'manual') {
+    initManualTable();
+    refreshData();
+  } else {
+    document.getElementById('liveStatus').innerHTML =
+      `<span style="color: var(--aemetis-mid-blue);">Period changed. Click <strong>Fetch live weather</strong> to reload data for the new window.</span>`;
+  }
+}
+
+// ============================================================
+// LIVE API MODE
+// ============================================================
+async function fetchLiveWeather() {
+  const lat = parseFloat(document.getElementById('inLat').value);
+  const lng = parseFloat(document.getElementById('inLng').value);
+  const statusEl = document.getElementById('liveStatus');
+  statusEl.innerHTML = '<span class="spinner"></span> Fetching from Open-Meteo...';
+
+  const start = getStartDate();
+  const end = new Date(start); end.setDate(end.getDate() + 13);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const archiveCutoff = new Date(today); archiveCutoff.setDate(archiveCutoff.getDate() - 3);
+
+  try {
+    let weatherUrl;
+    if (end < archiveCutoff) {
+      weatherUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}` +
+                   `&start_date=${isoDate(start)}&end_date=${isoDate(end)}` +
+                   `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean` +
+                   `&temperature_unit=fahrenheit&timezone=America/Los_Angeles`;
+    } else {
+      weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+                   `&start_date=${isoDate(start)}&end_date=${isoDate(end)}` +
+                   `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean` +
+                   `&temperature_unit=fahrenheit&timezone=America/Los_Angeles`;
+    }
+
+    const histEnd = new Date(today); histEnd.setDate(histEnd.getDate() - 3);
+    const histStart = new Date(histEnd); histStart.setDate(histStart.getDate() - 365);
+    const histUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}` +
+                    `&start_date=${isoDate(histStart)}&end_date=${isoDate(histEnd)}` +
+                    `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=America/Los_Angeles`;
+
+    const [wResp, hResp] = await Promise.all([fetch(weatherUrl), fetch(histUrl)]);
+    if (!wResp.ok || !hResp.ok) throw new Error(`API returned ${wResp.status}/${hResp.status}`);
+    const w = await wResp.json();
+    const h = await hResp.json();
+
+    dailyWeather = w.daily.time.map((t, i) => ({
+      date: new Date(t + 'T12:00:00'),
+      tmax: w.daily.temperature_2m_max[i],
+      tmin: w.daily.temperature_2m_min[i],
+      tmean: w.daily.temperature_2m_mean[i],
+    }));
+    historyData = h.daily.time.map((t, i) => ({
+      date: new Date(t + 'T12:00:00'),
+      tmean: h.daily.temperature_2m_mean[i],
+    }));
+
+    statusEl.innerHTML = `<strong style="color: var(--aemetis-dark-green);">✓</strong> ` +
+      `Loaded ${dailyWeather.length} days starting ${start.toLocaleDateString()} (${end < archiveCutoff ? 'historical' : 'forecast'}) ` +
+      `and ${historyData.length} days of 1-year history.`;
+    document.getElementById('lastRefresh').textContent = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    document.getElementById('historicalEmpty').classList.add('hidden');
+    document.getElementById('chartHistorical').classList.remove('hidden');
+    refreshData();
+  } catch (e) {
+    statusEl.innerHTML = `<strong style="color: var(--aemetis-red);">✗ Fetch failed:</strong> ${e.message}. ` +
+      `If you're viewing inside the claude.ai chat, the artifact preview blocks external APIs — ` +
+      `download this HTML and open it directly, or switch to Manual Entry mode.`;
+  }
+}
+
+// ============================================================
+// MODE SWITCH
+// ============================================================
+function setMode(m) {
+  mode = m;
+  document.getElementById('tabManual').classList.toggle('active', m === 'manual');
+  document.getElementById('tabLive').classList.toggle('active', m === 'live');
+  document.getElementById('manualPanel').classList.toggle('hidden', m !== 'manual');
+  document.getElementById('livePanel').classList.toggle('hidden', m !== 'live');
+
+  if (m === 'manual') {
+    initManualTable();
+    document.getElementById('historicalEmpty').classList.remove('hidden');
+    document.getElementById('chartHistorical').classList.add('hidden');
+    setStatus('<strong>Manual mode.</strong> Edit the high/low for each day — pull from <a href="https://www.wunderground.com/weather/us/ca/modesto/" target="_blank" style="text-decoration: underline;">Wunderground Modesto</a> or any other source. Defaults are climatological normals.', 'ok');
+  } else {
+    setStatus('<strong>Live API mode.</strong> Click "Fetch live weather" below. Note: requires this file to be opened locally or hosted (claude.ai preview blocks external API calls).', 'info');
+  }
+  refreshData();
+}
+
+// ============================================================
+// MAIN RECALC
+// ============================================================
+function refreshData() {
+  document.getElementById('lastRefresh').textContent = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  if (!dailyWeather.length) return;
+  const wce = parseFloat(document.getElementById('inWCE').value) || 0;
+  const baseline = parseFloat(document.getElementById('inBaseline').value) || 14.2;
+  const sensitivity = parseFloat(document.getElementById('inSensitivity').value) || 1.6;
+
+  document.getElementById('kpiWCE').textContent = formatNum(wce);
+  document.getElementById('kpiAnnual').textContent = formatNum(wce * baseline);
+  const includedCount = DAIRIES.filter(d => !d._excluded).length;
+  const certCount = DAIRIES.filter(d => !d._excluded && d.status === 'Certified').length;
+  document.getElementById('kpiWCEsub').textContent =
+    `${includedCount} site${includedCount === 1 ? '' : 's'} included (${certCount} certified)`;
+
+  const tbody = document.querySelector('#weeklyTable tbody');
+  tbody.innerHTML = '';
+  let totBase = 0, totAdj = 0, totTemp = 0, totNormal = 0;
+  const sevenDay = dailyWeather.slice(0, 7);
+
+  for (const w of sevenDay) {
+    const p = dailyProduction(wce, baseline, sensitivity, w.date, w.tmean);
+    totBase += p.base;
+    totAdj += p.adjusted;
+    totTemp += w.tmean;
+    totNormal += p.normal;
+    const delta = w.tmean - p.normal;
+    const adjPct = (p.adjusted / p.base - 1) * 100;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${w.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+      <td>${DAY_NAMES[w.date.getDay()]}</td>
+      <td class="num">${formatNum(w.tmax, 1)}</td>
+      <td class="num">${formatNum(w.tmin, 1)}</td>
+      <td class="num"><strong>${formatNum(w.tmean, 1)}</strong></td>
+      <td class="num">${formatNum(p.normal, 1)}</td>
+      <td class="num ${delta >= 0 ? 'status-ok' : 'status-warn'}">${delta >= 0 ? '+' : ''}${formatNum(delta, 1)}°</td>
+      <td class="num">${formatNum(p.base, 0)}</td>
+      <td class="num" style="font-weight: 600; color: var(--aemetis-dark-blue);">${formatNum(p.adjusted, 0)}</td>
+      <td class="num ${adjPct >= 0 ? 'status-ok' : 'status-warn'}">${adjPct >= 0 ? '+' : ''}${formatNum(adjPct, 1)}%</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('totBase').textContent = formatNum(totBase);
+  document.getElementById('totAdj').textContent = formatNum(totAdj);
+  const totPct = (totAdj / totBase - 1) * 100;
+  const totPctEl = document.getElementById('totPct');
+  totPctEl.textContent = (totPct >= 0 ? '+' : '') + formatNum(totPct, 1) + '%';
+  totPctEl.className = 'num ' + (totPct >= 0 ? 'tfoot-delta-pos' : 'tfoot-delta-neg');
+
+  document.getElementById('kpi7day').textContent = formatNum(totAdj);
+  document.getElementById('kpi7daySub').textContent = `Baseline ${formatNum(totBase)} · ${totPct >= 0 ? '+' : ''}${formatNum(totPct, 1)}% vs. baseline`;
+  document.getElementById('kpiTemp').textContent = formatNum(totTemp / 7, 1) + '°F';
+  const tempDelta = (totTemp - totNormal) / 7;
+  document.getElementById('kpiTempSub').textContent = `${tempDelta >= 0 ? '+' : ''}${formatNum(tempDelta, 1)}°F vs. normal`;
+
+  drawOutlook(wce, baseline, sensitivity);
+  if (historyData.length) drawHistorical(wce, baseline, sensitivity);
+  renderRoster();
+}
+
+// ============================================================
+// CHART: 14-DAY OUTLOOK (rebuilt for v4)
+// ============================================================
+const weekSeparatorPlugin = {
+  id: 'weekSeparator',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea, scales: { x } } = chart;
+    if (!chartArea || !x) return;
+    // Vertical line between index 6 and 7 (separating 7-day forecast from extended outlook)
+    const xPos = (x.getPixelForValue(6) + x.getPixelForValue(7)) / 2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 51, 102, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xPos, chartArea.top);
+    ctx.lineTo(xPos, chartArea.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 51, 102, 0.7)';
+    ctx.font = '600 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('◀ 7-day forecast │ Extended outlook ▶', xPos, chartArea.top + 12);
+    ctx.restore();
+  }
+};
+
+function drawOutlook(wce, baseline, sensitivity) {
+  // Build multi-line labels: ['Thu', 'May 14']
+  const labels = dailyWeather.map(w => [
+    DAY_NAMES[w.date.getDay()],
+    w.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  ]);
+
+  const productions = dailyWeather.map(w => dailyProduction(wce, baseline, sensitivity, w.date, w.tmean));
+  const adjusted = productions.map(p => p.adjusted);
+  const base = productions.map(p => p.base);
+  const temps = dailyWeather.map(w => w.tmean);
+  const normals = dailyWeather.map(w => normalForDate(w.date));
+
+  // Direction-tinted bar colors
+  const barColors = productions.map(p => {
+    const ratio = p.adjusted / p.base;
+    if (ratio > 1.005) return 'rgba(102, 153, 51, 0.85)';   // green — above baseline
+    if (ratio < 0.995) return 'rgba(204, 153, 51, 0.85)';   // amber — below baseline
+    return 'rgba(77, 128, 192, 0.85)';                       // blue — at baseline
+  });
+  const borderColors = productions.map(p => {
+    const ratio = p.adjusted / p.base;
+    if (ratio > 1.005) return '#336600';
+    if (ratio < 0.995) return '#996600';
+    return '#003366';
+  });
+
+  // Dynamic y-axis: zoom to data range so variance is visible
+  const yValues = [...adjusted, ...base];
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const yRange = yMax - yMin;
+  let yScaleMin, yScaleMax;
+  if (yRange / yMax < 0.05) {
+    // Tightly clustered — zoom in around the cluster
+    yScaleMin = Math.floor(yMin * 0.95 / 100) * 100;
+    yScaleMax = Math.ceil(yMax * 1.05 / 100) * 100;
+  } else {
+    // Normal range — pad with headroom
+    yScaleMin = Math.max(0, Math.floor((yMin - yRange * 0.5) / 100) * 100);
+    yScaleMax = Math.ceil((yMax + yRange * 0.25) / 100) * 100;
+  }
+
+  if (charts.outlook) charts.outlook.destroy();
+  const ctx = document.getElementById('chartOutlook').getContext('2d');
+  charts.outlook = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Adjusted MMBtu',
+          data: adjusted,
+          backgroundColor: barColors,
+          borderColor: borderColors,
+          borderWidth: 1.5,
+          yAxisID: 'y',
+          order: 2
+        },
+        {
+          label: 'Baseline MMBtu',
+          data: base,
+          type: 'line',
+          borderColor: 'rgba(0, 51, 102, 0.7)',
+          backgroundColor: 'transparent',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          stepped: 'middle',
+          yAxisID: 'y',
+          order: 1
+        },
+        {
+          label: 'Temp (°F)',
+          data: temps,
+          type: 'line',
+          borderColor: '#FFCC33',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#FFCC33',
+          pointBorderColor: '#996600',
+          pointBorderWidth: 1,
+          tension: 0.3,
+          yAxisID: 'y1',
+          order: 0
+        },
+        {
+          label: 'Normal Temp (°F)',
+          data: normals,
+          type: 'line',
+          borderColor: '#CC0000',
+          backgroundColor: 'transparent',
+          borderDash: [3, 3],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          yAxisID: 'y1',
+          order: 0
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, usePointStyle: true } },
+        tooltip: {
+          backgroundColor: 'rgba(0, 51, 102, 0.95)',
+          titleFont: { size: 12, weight: 'bold' },
+          bodyFont: { size: 11 },
+          padding: 10,
+          callbacks: {
+            title: (items) => {
+              const idx = items[0].dataIndex;
+              return `${labels[idx][0]}, ${labels[idx][1]}`;
+            },
+            label: (c) => {
+              if (c.dataset.label === 'Adjusted MMBtu') {
+                const p = productions[c.dataIndex];
+                const delta = p.adjusted - p.base;
+                const pct = (p.adjusted / p.base - 1) * 100;
+                return [
+                  `Adjusted: ${p.adjusted.toFixed(0)} MMBtu`,
+                  `Baseline: ${p.base.toFixed(0)} MMBtu`,
+                  `Δ: ${delta >= 0 ? '+' : ''}${delta.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`,
+                ];
+              }
+              if (c.dataset.label === 'Temp (°F)') {
+                const t = temps[c.dataIndex];
+                const n = normals[c.dataIndex];
+                return `Temp: ${t.toFixed(1)}°F (Δ ${(t - n) >= 0 ? '+' : ''}${(t - n).toFixed(1)}° vs ${n.toFixed(1)}° normal)`;
+              }
+              return null;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          position: 'left',
+          title: { display: true, text: 'MMBtu/day', font: { weight: 'bold' } },
+          min: yScaleMin,
+          max: yScaleMax,
+          ticks: { callback: (v) => v.toLocaleString() }
+        },
+        y1: {
+          position: 'right',
+          title: { display: true, text: '°F', font: { weight: 'bold' } },
+          grid: { drawOnChartArea: false },
+          min: 30,
+          max: 100,
+        },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    },
+    plugins: [weekSeparatorPlugin]
+  });
+}
+
+function drawHistorical(wce, baseline, sensitivity) {
+  if (!historyData.length) return;
+  const labels = historyData.map(w => w.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  const temps = historyData.map(w => w.tmean);
+  const normals = historyData.map(w => normalForDate(w.date));
+  const production = historyData.map(w => dailyProduction(wce, baseline, sensitivity, w.date, w.tmean).adjusted);
+
+  if (charts.historical) charts.historical.destroy();
+  const ctx = document.getElementById('chartHistorical').getContext('2d');
+  charts.historical = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Daily Mean Temp', data: temps, borderColor: '#FFCC33', backgroundColor: 'rgba(255,204,51,0.15)', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'y1', tension: 0.25 },
+        { label: 'Normal Temp', data: normals, borderColor: '#CC0000', borderDash: [3,3], borderWidth: 1.5, pointRadius: 0, yAxisID: 'y1', fill: false },
+        { label: 'Modeled MMBtu/day', data: production, borderColor: '#4D80C0', backgroundColor: 'rgba(77,128,192,0.15)', borderWidth: 2, pointRadius: 0, fill: true, yAxisID: 'y', tension: 0.25 },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } },
+        decimation: { enabled: true, algorithm: 'lttb', samples: 120 },
+      },
+      scales: {
+        y: { position: 'left', title: { display: true, text: 'MMBtu/day (modeled)' }, beginAtZero: true },
+        y1: { position: 'right', title: { display: true, text: '°F' }, grid: { drawOnChartArea: false } },
+        x: { ticks: { maxTicksLimit: 14, autoSkip: true } }
+      }
+    }
+  });
+}
+
+function drawSeasonality() {
+  const ctx = document.getElementById('chartSeasonality').getContext('2d');
+  if (charts.seasonality) charts.seasonality.destroy();
+  charts.seasonality = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        { label: 'Seasonality Factor', data: SEASONALITY, backgroundColor: SEASONALITY.map(v => v >= 1 ? '#669933' : '#FFCC33'), borderColor: '#336600', borderWidth: 1, yAxisID: 'y' },
+        { label: 'Normal Temp (°F)', data: MONTHLY_NORMALS, type: 'line', borderColor: '#003366', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#003366', yAxisID: 'y1' },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+      scales: {
+        y: { position: 'left', title: { display: true, text: 'Seasonality Factor' }, suggestedMin: 0.5, suggestedMax: 1.4 },
+        y1: { position: 'right', title: { display: true, text: '°F' }, grid: { drawOnChartArea: false }, suggestedMin: 40, suggestedMax: 85 },
+      }
+    }
+  });
+}
+
+// ============================================================
+// ROSTER (with bulk select)
+// ============================================================
+function renderRoster() {
+  const tbody = document.querySelector('#dairyTable tbody');
+  const baseline = parseFloat(document.getElementById('inBaseline').value) || 14.2;
+  tbody.innerHTML = '';
+  let totalWCE = 0, totalMMBtu = 0;
+  for (const d of DAIRIES) {
+    const annual = d.wce * baseline;
+    const included = !d._excluded;
+    if (included) { totalWCE += d.wce; totalMMBtu += annual; }
+    const tr = document.createElement('tr');
+    if (!included) tr.style.opacity = '0.55';
+    tr.innerHTML = `
+      <td>${d.n}</td>
+      <td>${d.name}</td>
+      <td><span class="chip ${d.status === 'Certified' ? 'chip-cert' : 'chip-precom'}">${d.status}</span></td>
+      <td class="num">${formatNum(d.wce)}</td>
+      <td class="num">${formatNum(d.ci, 1)}</td>
+      <td class="num">${formatNum(annual)}</td>
+      <td><input type="checkbox" ${included ? 'checked' : ''} onchange="toggleDairy(${d.n}, this.checked)" /></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('rosterWCE').textContent = formatNum(totalWCE);
+  document.getElementById('rosterMMBtu').textContent = formatNum(totalMMBtu);
+}
+
+function toggleDairy(n, included) {
+  const d = DAIRIES.find(x => x.n === n);
+  d._excluded = !included;
+  const total = DAIRIES.filter(x => !x._excluded).reduce((s, x) => s + x.wce, 0);
+  document.getElementById('inWCE').value = total;
+  refreshData();
+}
+
+function bulkSelect(which) {
+  for (const d of DAIRIES) {
+    if (which === 'all') d._excluded = false;
+    else if (which === 'none') d._excluded = true;
+    else if (which === 'certified') d._excluded = (d.status !== 'Certified');
+  }
+  const total = DAIRIES.filter(x => !x._excluded).reduce((s, x) => s + x.wce, 0);
+  document.getElementById('inWCE').value = total;
+  refreshData();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportCSV() {
+  const wce = parseFloat(document.getElementById('inWCE').value);
+  const baseline = parseFloat(document.getElementById('inBaseline').value);
+  const sensitivity = parseFloat(document.getElementById('inSensitivity').value);
+
+  let csv = 'Date,Day,Tmax_F,Tmin_F,Tmean_F,Normal_F,Delta_F,Baseline_MMBtu,Adjusted_MMBtu,Adj_Pct\n';
+  for (const w of dailyWeather.slice(0, 14)) {
+    const p = dailyProduction(wce, baseline, sensitivity, w.date, w.tmean);
+    const adjPct = (p.adjusted / p.base - 1) * 100;
+    csv += [
+      isoDate(w.date), DAY_NAMES[w.date.getDay()],
+      w.tmax.toFixed(1), w.tmin.toFixed(1), w.tmean.toFixed(1),
+      p.normal.toFixed(1), (w.tmean - p.normal).toFixed(1),
+      p.base.toFixed(0), p.adjusted.toFixed(0), adjPct.toFixed(1),
+    ].join(',') + '\n';
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rng_forecast_${isoDate(new Date()).replace(/-/g,'')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  document.getElementById('inStartDate').value = `${yyyy}-${mm}-${dd}`;
+  updatePeriodEnd();
+
+  drawSeasonality();
+  initManualTable();
+  setMode('manual');
+  refreshData();
+});
+</script>
+</body>
+</html>
